@@ -83,10 +83,24 @@ def main() -> None:
 
     print(f"os_label={args.os_label}  runs={n_runs}  output={out_path}")
     writer = None
+    reference_perf = None  # (accuracy, f1) of run 0: must be identical every run
     t_start = time.perf_counter()
     with open(out_path, "a", newline="") as f:
         for i in range(n_runs):
             result = run_one_trial(trial_script, args, i)
+            # Inference is deterministic (fixed weights/data/seeds), so accuracy
+            # must never vary between runs on the same system. If it does, the
+            # determinism assumption is broken — stop before wasting the full 50.
+            perf = (result["accuracy"], result["f1_macro"])
+            if reference_perf is None:
+                reference_perf = perf
+            elif perf != reference_perf:
+                sys.exit(
+                    f"ABORT: accuracy/F1 changed between runs on this system "
+                    f"(run 0: {reference_perf}, run {i}: {perf}). Deterministic "
+                    "inference is violated — check data/ integrity (SHA-256 vs "
+                    "setup_manifest.json) and the installed torch version before rerunning."
+                )
             if writer is None:
                 writer = csv.DictWriter(f, fieldnames=list(result.keys()))
                 if f.tell() == 0:
@@ -103,6 +117,9 @@ def main() -> None:
 
     elapsed = time.perf_counter() - t_start
     print(f"\nDone: {n_runs} runs in {elapsed / 60:.1f} min -> {out_path}")
+    print(f"accuracy/f1 on this system (identical across all runs): "
+          f"{reference_perf[0]} / {reference_perf[1]}")
+    print("Cross-system gate: these two numbers must match EXACTLY on all four systems.")
     if args.dry_run:
         print("This was a --dry-run. Re-run without --dry-run for the full 50 repetitions.")
 

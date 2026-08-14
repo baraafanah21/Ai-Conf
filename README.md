@@ -54,15 +54,29 @@ Downloads CIFAR-10, fine-tunes the ResNet18 head (seed 42), and writes
 `data/model_weights.pt`, `data/test_set.pt`, `data/setup_manifest.json`.
 
 **Then copy the whole `data/` directory to every other machine/OS partition**
-(USB drive or shared partition — not the network at measurement time). Verify the
-SHA-256 hashes from `setup_manifest.json` match on each system. Never re-run
-model_setup per OS — all systems must use byte-identical weights and test data.
+(USB drive or shared partition — not the network at measurement time). Transfer it
+as a **single compressed archive** (`tar czf data.tar.gz data/` / extract on the
+target) so no transfer tool can alter file contents (e.g., line-ending conversion
+of `setup_manifest.json`). After extraction on EACH system, verify the SHA-256
+hashes against `setup_manifest.json` (`sha256sum data/model_weights.pt data/test_set.pt`
+on Linux, `Get-FileHash` on Windows) and record the check in
+[hardware_specs.md](hardware_specs.md). Never re-run model_setup per OS — all
+systems must use byte-identical weights and test data.
 
 ### 2. Quick sanity check on each system (3 runs)
 
 ```bash
 python src/run_experiment.py --os-label ubuntu --dry-run
 ```
+
+**Gate before the full runs:** run `--dry-run` on ALL FOUR systems first and
+compare the printed accuracy/F1 values across systems. They must be **exactly
+identical** everywhere (same weights, same data, deterministic inference — the
+script also aborts within a system if accuracy varies between its own runs). Any
+accuracy difference across systems signals a real problem (corrupted `data/`
+copy, mismatched torch version) that must be fixed before spending hours on the
+4 × 50 full runs. Timing/memory differences across systems are expected — that
+is the phenomenon under study.
 
 ### 3. Full experiment on each system (50 runs, ~overnight-friendly)
 
@@ -110,6 +124,12 @@ hardware_specs.md      exact hardware + software versions per machine
 ## Validity notes
 
 - `src/run_trial.py` is byte-identical on all systems; only `--os-label` differs.
-- Fixed seeds (42), fixed torch threads (4), fixed batch size (32), CPU-only.
+- Fixed seeds (42), fixed batch size (32), CPU-only.
+- **Torch threads are pinned to 4 on every system as a deliberate controlled
+  constant** — not "whatever each machine defaults to". PyTorch's default thread
+  count follows the detected core count, which would silently differ if the two
+  machines' CPUs differ, confounding OS effects with parallelism effects. Pinning
+  requires 4 ≤ physical cores on BOTH machines — confirm this when filling in
+  [hardware_specs.md](hardware_specs.md) and record the actual core counts there.
 - No network calls during timing; model and data are loaded before the timed window.
 - Peak memory is sampled cross-platform the same way on all OSes (psutil RSS sampler).

@@ -44,6 +44,11 @@ _TODO: one paragraph stating how close the two machines are (CPU generation/clas
 RAM amount) and any known differences — needed for interpreting comparisons 3 and 4
 (Win11 vs Win11, Ubuntu vs Fedora), which cross hardware._
 
+**Controlled constant — torch threads = 4 on every system.** This is a deliberate
+methodological choice, not a per-machine default: it decouples the OS comparison
+from CPU-core-count differences between the two machines. Confirm here that both
+machines have ≥ 4 physical cores: machine 1 = _TODO_, machine 2 = _TODO_.
+
 ## data/ integrity check
 
 Paste `setup_manifest.json` hashes as verified on each system:

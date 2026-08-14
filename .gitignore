@@ -1,3 +1,6 @@
+# Research context stays local — never push
+CLAUDE.md
+
 # Model weights / datasets are distributed by direct copy, not via git
 data/
 
@@ -5,3 +8,4 @@ data/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
