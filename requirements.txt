@@ -1,0 +1,13 @@
+# Pin these EXACT versions on every machine/OS so that library version is a
+# controlled variable, not a confound (parallels "Python version" control in
+# Rahman et al. 2024). Use Python 3.12.x on all systems.
+#
+# IMPORTANT: install the CPU-only PyTorch wheels on ALL machines (even if a GPU
+# exists) so the comparison is OS-vs-OS, not driver-vs-driver:
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1
+torchvision==0.20.1
+pandas==2.2.3
+scipy==1.14.1
+psutil==6.1.0
+matplotlib==3.9.2

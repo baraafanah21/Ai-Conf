@@ -1,0 +1,7 @@
+# Model weights / datasets are distributed by direct copy, not via git
+data/
+
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
