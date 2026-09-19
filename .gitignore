@@ -9,3 +9,6 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+
+# Transfer archive (43MB, regenerate with tar czf)
+data_transfer.tar.gz
