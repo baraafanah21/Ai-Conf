@@ -192,3 +192,8 @@ reference_baseline.md  the Rahman et al. 2024 figures we compare against
 - No network calls during timing; model and data are loaded before the timed window.
 - Peak memory is sampled cross-platform the same way on all OSes (psutil RSS sampler).
 
+## Reference
+
+Rahman, M., Khatoonabadi, S., Abdellatif, A., Samaana, H., & Shihab, E. (2024).
+*On the Variability of AI-based Software Systems Due to Environment Configurations.*
+arXiv:2408.02825. https://arxiv.org/abs/2408.02825
