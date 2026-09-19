@@ -69,14 +69,50 @@ systems must use byte-identical weights and test data.
 python src/run_experiment.py --os-label ubuntu --dry-run
 ```
 
-**Gate before the full runs:** run `--dry-run` on ALL FOUR systems first and
-compare the printed accuracy/F1 values across systems. They must be **exactly
-identical** everywhere (same weights, same data, deterministic inference — the
-script also aborts within a system if accuracy varies between its own runs). Any
-accuracy difference across systems signals a real problem (corrupted `data/`
-copy, mismatched torch version) that must be fixed before spending hours on the
-4 × 50 full runs. Timing/memory differences across systems are expected — that
-is the phenomenon under study.
+**Gate before the full runs.** Run `--dry-run` on ALL FOUR systems, collect the
+four CSVs into `results/raw/`, then check them automatically:
+
+```bash
+python src/check_consistency.py --dry-run
+# exit 0 = all 4 systems agree, safe to start the 50-run experiments
+# exit 1 = mismatch, must be fixed first
+# exit 2 = fewer than 4 systems reported in yet — do not start
+```
+
+Dry-runs write to `results/raw/*_raw.dryrun.csv`, kept separate from the full-run
+files so the 3 warm-up samples can never be mixed into the 50-run distributions.
+`run_experiment.py` also refuses to write over an existing results file unless
+you pass `--append`.
+
+It verifies accuracy/F1 are constant within each system **and identical across
+all four**, plus that the controlled constants (threads, batch size, test-set
+size, device) never drift. `run_experiment.py` also aborts on the spot if
+accuracy varies between runs on one system. Any accuracy difference signals a
+real problem (corrupted `data/` copy, mismatched torch version) to fix before
+spending hours on the 4 × 50 runs. Timing/memory differences are expected —
+that is the phenomenon under study.
+
+### Checklist — before committing to the full 50 runs
+
+Every box must be ticked before starting; the 4 × 50 runs cost hours per machine
+and cannot be salvaged after the fact if a precondition was wrong.
+
+- [ ] Contacted the original paper's co-author to confirm no similar work is
+      already in progress
+- [ ] Checked the publication status of the reference paper (preprint vs formally
+      published) on Google Scholar — cite the published version if one exists
+- [ ] `model_setup.py` was run on Ubuntu **only**, and `data/` was transferred to
+      the other three systems as a `tar czf` archive
+- [ ] SHA-256 hashes verified against `setup_manifest.json` after extraction on
+      all four systems
+- [ ] `--dry-run` executed on all four systems, with accuracy/F1 **byte-identical**
+      across every one of them (`check_consistency.py --dry-run` exits 0)
+- [ ] Physical core count ≥ 4 confirmed on both machines (so `threads=4` is a
+      valid pin, not oversubscription)
+- [ ] [hardware_specs.md](hardware_specs.md) fully filled in (CPU model, RAM, core
+      counts, software versions — no TODO placeholders left)
+- [x] [reference_baseline.md](reference_baseline.md) complete (Threats to Validity
+      + Citation sections added)
 
 ### 3. Full experiment on each system (50 runs, ~overnight-friendly)
 
@@ -87,7 +123,8 @@ python src/run_experiment.py --os-label fedora           # machine 2, Fedora boo
 python src/run_experiment.py --os-label win11_machine2   # machine 2, Windows boot
 ```
 
-Writes `results/raw/{ubuntu_raw,win11_m1_raw,fedora_raw,win11_m2_raw}.csv`.
+Writes `results/raw/{ubuntu_raw,win11_m1_raw,fedora_raw,win11_m2_raw}.csv`, then
+confirm with `python src/check_consistency.py` (no `--dry-run` this time).
 Commit/copy each CSV back into this repo (GitHub is for storing code and results
 only — **never run measurements on CI**).
 
@@ -104,8 +141,27 @@ python src/analyze_results.py
 
 Produces in `results/analysis/`:
 - `comparison_results.csv` — full stats for every comparison × metric
-- `summary_table.md` — Table 3/4-style classification (Zero / Non-zero insignificant / Non-zero significant) + headline percentages
+- `summary_table.md` — Table 3/4-style classification (Zero / Non-zero insignificant /
+  Non-zero significant), headline percentages, a **side-by-side comparison with
+  Rahman et al. 2024**, the ready-to-paste quotable sentence for the abstract, and a
+  **directional interpretation per comparison** (printed to stdout as well): whether
+  our timing result reproduces, reverses, or fails to find their Linux-vs-Windows
+  gap. The wording for all three outcomes is fixed in the source code, so the
+  abstract cannot be phrased after the fact in favour of a preferred result — a
+  reversal would be a headline finding (virtualization, not the OS, drove their gap),
+  not a failed experiment
 - `pct_change.png` — poster-ready percentage-change chart
+
+The target figures we compare against live in
+[reference_baseline.md](reference_baseline.md): the reference paper's full
+Tables 3/4/5/7/9–10, the direction of its effects, and the two caveats the
+abstract must state (they counted 30 projects vs our 4 OS comparisons; their
+projects trained stochastically while we run fixed-weight inference).
+
+Our headline benchmark is their **Linux vs Windows** column — processing time
+significant in 30/30 projects (100%), performance in only 6/30 (20%), with
+Linux consistently faster. Whether our physical machines reproduce that
+**direction** is a stronger result than matching the percentages.
 
 ## Repo layout
 
@@ -114,11 +170,13 @@ src/
   model_setup.py       one-time model + test-set preparation (network used HERE only)
   run_trial.py         one measured inference trial -> one JSON result line
   run_experiment.py    N repetitions in fresh subprocesses -> raw CSV
+  check_consistency.py cross-system gate: accuracy identical + constants held
   analyze_results.py   Mann-Whitney U + Cliff's delta + tables + chart
 results/raw/           raw per-system CSVs (committed)
 results/analysis/      analysis outputs (committed)
 poster/                poster-ready figures/tables
 hardware_specs.md      exact hardware + software versions per machine
+reference_baseline.md  the Rahman et al. 2024 figures we compare against
 ```
 
 ## Validity notes
@@ -133,3 +191,4 @@ hardware_specs.md      exact hardware + software versions per machine
   [hardware_specs.md](hardware_specs.md) and record the actual core counts there.
 - No network calls during timing; model and data are loaded before the timed window.
 - Peak memory is sampled cross-platform the same way on all OSes (psutil RSS sampler).
+
